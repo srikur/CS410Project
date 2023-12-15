@@ -142,14 +142,6 @@ class BM25 {
 // This method is called when your extension is activated
 // Your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "stackoverflowsearch" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
 	let disposable = vscode.commands.registerCommand('stackoverflowsearch.helloWorld', () => {
 		// The code you place here will be executed every time your command is executed
 		// Display a message box to the user
@@ -161,10 +153,6 @@ export function activate(context: vscode.ExtensionContext) {
 		if (!selection || selection.isEmpty) {return;}
 		const selectionRange = new vscode.Range(selection.start.line, selection.start.character, selection.end.line, selection.end.character);
 		const highlighted = editor.document.getText(selectionRange);
-
-		// Search Bing, limiting the responses to stackoverflow.com. THen, get the URLs of the top 5 results
-		// DO not use the Bing API, as it requires a subscription key
-		// Instead, use the Bing search engine directly
 
 		// Build the query URL
 		// make the text compatible with the URL
@@ -199,7 +187,6 @@ export function activate(context: vscode.ExtensionContext) {
 				for (let i = 0; i < 5; i++) {
 					urls.push(json.items[i].link);
 				}
-				console.log(urls);
 
 				// Get the question IDs for the urls
 				let questionIds: string[] = [];
@@ -226,16 +213,12 @@ export function activate(context: vscode.ExtensionContext) {
 				}).then((data) => {
 					// Get the question and answer HTML
 					for (let item of data as any) {
-						console.log(item);
 						const question = item.items[0];
 						const topAnswer = question.answers?.sort((a: { score: number; }, b: { score: number; }) => b.score - a.score)[0];
 						// Add the question and answer HTML to the arrays
 						st_questions.push(question.body);
 						st_answers.push(topAnswer);
 					}
-
-					console.log(st_questions);
-					console.log(st_answers);
 
 					// Use BM25 to get the top answer
 					let bm25 = new BM25(st_questions);

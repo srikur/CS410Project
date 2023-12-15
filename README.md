@@ -1,4 +1,4 @@
-# CS410Project
+# CS410Project Project Proposal & Documentation
 CS 410 Final Project
 
 ## Project Proposal
@@ -9,3 +9,22 @@ CS 410 Final Project
 5.	I plan on having my extension be available in the marketplace for VS Code extensions. I hope to allow my code to communicate with users’ documents by allowing for in-line code completion, similar to the functionality that GitHub Copilot provides.
 6.	VS Code extensions are mostly written in JavaScript, so that is what I will use.
 7.	I think this is a task that, when testing and debugging is included, will take much more than 20 hours.
+
+## Project Documentation
+
+### How to Install
+1. Download the .vsix file from the releases page
+2. Open VS Code
+3. Go to the extensions tab
+4. Click the three dots in the top right corner
+5. Click "Install from VSIX..."
+6. Select the .vsix file you downloaded
+7. Reload VS Code
+8. You should now see the extension in the extensions tab
+
+### How to Use
+1. Open a file in VS Code
+2. Highlight a comment that you want to find a StackOverflow answer for
+3. Press `ctrl+shift+p` to open the command palette
+4. Type "Ask StackOverflow!" and select the command
+5. When the result is ready, the URL will display as a notification in the bottom right corner of the screen
