@@ -12,6 +12,9 @@ CS 410 Final Project
 
 ## Project Documentation
 
+### How the software is implemented
+The software is implemented as a VS Code extension. The extension is written in TypeScript, which is a superset of JavaScript. The extension uses the VS Code API to interact with the editor and the StackExchange API to search for StackOverflow answers. The extension uses the Okapi BM25 algorithm to rank the StackOverflow questions on relevance to the highlighted text. The Google Custom Search API is used to search for the StackOverflow question that is most relevant to the highlighted text. The extension then displays the URL of the most relevant StackOverflow question as a notification in the bottom right corner of the screen.
+
 ### How to Install
 1. Download the .vsix file from the releases page
 2. Open VS Code
