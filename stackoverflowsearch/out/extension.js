@@ -40,7 +40,7 @@ function activate(context) {
     let disposable = vscode.commands.registerCommand('stackoverflowsearch.helloWorld', () => {
         // The code you place here will be executed every time your command is executed
         // Display a message box to the user
-        vscode.window.showInformationMessage('Hello Srikur');
+        vscode.window.showInformationMessage('Attempting to retrieve StackOverflow results');
         // Get the active text editor
         const editor = vscode.window.activeTextEditor;
         const selection = editor?.selection;
@@ -62,6 +62,9 @@ function activate(context) {
         let query = "https://www.bing.com/search?q=" + text + "+site%3Astackoverflow.com";
         // use Node.js HTTP library to get the HTML of the query
         const https = require('https');
+        let urls = [];
+        let st_questions = [];
+        let st_answers = [];
         https.get(query, (resp) => {
             let data = '';
             resp.on('data', (chunk) => {
@@ -70,22 +73,62 @@ function activate(context) {
             resp.on('end', () => {
                 // get the URLs of the top 5 results
                 const $ = cheerio.load(data);
-                let urls = [];
-                $('a').each(function (i, elem) {
-                    let url = $(this).attr('href');
+                $("li.b_algo").each(function (i, elem) {
+                    let url = $(this).find("a").attr("href");
                     if (url && url.includes("stackoverflow.com")) {
                         urls.push(url);
                     }
                 });
                 urls = urls.slice(0, 5);
-                // Open the URLs in the browser
                 urls.forEach(url => {
-                    console.log(url);
+                    // Need to get the body of the stackoverflow page
+                    https.get(url, (resp) => {
+                        let data = '';
+                        resp.on('data', (chunk) => {
+                            data += chunk;
+                        });
+                        resp.on('end', () => {
+                            // get the text of the stackoverflow page
+                            const $ = cheerio.load(data);
+                            let posts = $(".js-post-body");
+                            let question_text = $(posts[0]).text();
+                            let answer_html = $(posts[1]).html();
+                            st_questions.push(question_text);
+                            if (answer_html !== null) {
+                                st_answers.push(answer_html);
+                            }
+                        });
+                    }).on("error", (err) => {
+                        console.log("Error: " + err.message);
+                    });
                 });
             });
         }).on("error", (err) => {
             console.log("Error: " + err.message);
         });
+        // 2. calculate the relevance of the questions to the highlighted text
+        // Using bm25 algorithm
+        const nodecallspython = require('node-calls-python');
+        const py = nodecallspython.interpreter;
+        let scores = [];
+        py.import("bm25.py").then(async function (pymodule) {
+            const pyobj = py.createSync(pymodule, "BM25", st_questions);
+            const ret_scores = await py.callSync(pyobj, "get_scores", highlighted);
+            scores = ret_scores;
+        });
+        // 3. Display the top answer's content in a window
+        // Get the index of the highest score
+        let max_score = 0;
+        let max_score_index = 0;
+        for (let i = 0; i < scores.length; i++) {
+            if (scores[i] > max_score) {
+                max_score = scores[i];
+                max_score_index = i;
+            }
+        }
+        // Display the HTML of the highest score in a new window
+        const panel = vscode.window.createWebviewPanel('stackoverflowsearch', 'StackOverflow Search', vscode.ViewColumn.One, {});
+        panel.webview.html = st_answers[max_score_index];
     });
     context.subscriptions.push(disposable);
 }
