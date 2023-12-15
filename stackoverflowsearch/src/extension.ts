@@ -171,87 +171,96 @@ export function activate(context: vscode.ExtensionContext) {
 		let text = highlighted;
 		text = text.replace(" ", "%20");
 		text = text.replace("\n", "%20");
-		text = text.replace("#", "%23");
+		text = text.replace("#", "");
 		text = text.replace("/", "");
-		let query = "https://www.bing.com/search?q=" + text + "+site%3Astackoverflow.com";
 
 		// use Node.js HTTP library to get the HTML of the query
 		const https = require('https');
 		let urls: string[] = [];
 		let st_questions: string[] = [];
 		let st_answers: string[] = [];
-		https.get(query, (resp: any) => {
+
+		// Use Google custom search API
+		const api_key = "AIzaSyBe_iLeqX-82btASX-6XE5AcmCidO_yIFE";
+		const cx = "60debd4612ccc4f2d";
+		const url = "https://www.googleapis.com/customsearch/v1?key=" + api_key + "&cx=" + cx + "&q=" + text;
+
+		// Use HTTP get to get the JSON response
+		https.get(url, (resp: any) => {
 			let data = '';
 			resp.on('data', (chunk: any) => {
 				data += chunk;
 			});
 			resp.on('end', () => {
-				// get the URLs of the top 5 results
-				const $ = cheerio.load(data);
-				$("li.b_algo").each(function(i: any, elem: any) {
-					let url = $(this).find("a").attr("href");
-					if (url && url.includes("stackoverflow.com")) {
-						urls.push(url);
+				// Parse the JSON response
+				let json = JSON.parse(data);
+
+				// Get the URLs of the top 5 results
+				for (let i = 0; i < 5; i++) {
+					urls.push(json.items[i].link);
+				}
+				console.log(urls);
+
+				// Get the question IDs for the urls
+				let questionIds: string[] = [];
+				for (let url of urls) {
+					let id = url.split("/")[4];
+					questionIds.push(id);
+				}
+
+				// fetch(`https://api.stackexchange.com/2.3/questions/${questionId}?order=desc&sort=activity&site=stackoverflow&filter=withbody`);
+
+				// Get the JSON results of the top 5 questions
+				const promises = [];
+				// Wait for all the promises to resolve
+				for (let questionId of questionIds) {
+					promises.push(fetch(`https://api.stackexchange.com/2.3/questions/${questionId}?order=desc&sort=activity&site=stackoverflow&filter=withbody`));
+				}
+
+				// Get the JSON results of the top 5 questions
+				Promise.all(promises).then((responses) => {
+					// Get the JSON results of the top 5 questions
+					return Promise.all(responses.map((response) => {
+						return response.json();
+					}));
+				}).then((data) => {
+					// Get the question and answer HTML
+					for (let item of data as any) {
+						console.log(item);
+						const question = item.items[0];
+						const topAnswer = question.answers?.sort((a: { score: number; }, b: { score: number; }) => b.score - a.score)[0];
+						// Add the question and answer HTML to the arrays
+						st_questions.push(question.body);
+						st_answers.push(topAnswer);
 					}
-				});
-				urls = urls.slice(0, 5);
 
-				urls.forEach(url => {
-					// Need to get the body of the stackoverflow page
-					https.get(url, (resp: any) => {
-						let data = '';
-						resp.on('data', (chunk: any) => {
-							data += chunk;
-						});
-						resp.on('end', () => {
-							// get the text of the stackoverflow page
-							const $ = cheerio.load(data);
-							let posts = $(".js-post-body");
-							let question_text = $(posts[0]).text();
-							let answer_html = $(posts[1]).html();
+					console.log(st_questions);
+					console.log(st_answers);
 
-							st_questions.push(question_text);
-							if (answer_html !== null) {
-								st_answers.push(answer_html);
-							}
-						});
-					}).on("error", (err: any) => {
-						console.log("Error: " + err.message);
-					});
+					// Use BM25 to get the top answer
+					let bm25 = new BM25(st_questions);
+					let scores = bm25.get_scores(highlighted);
+					console.log(scores);
+
+					// 3. Display the top answer's content in a window
+					// Get the index of the highest score
+					let max_score = 0;
+					let max_score_index = 0;
+					for (let i = 0; i < scores.length; i++) {
+						if (scores[i] > max_score) {
+							max_score = scores[i];
+							max_score_index = i;
+						}
+					}
+
+					// Display the top question's URL
+					vscode.window.showInformationMessage("Top question URL: " + urls[max_score_index]);
+
+				}).catch((error) => {
+					console.log(error);
 				});
 			});
-		}).on("error", (err: any) => {
-			console.log("Error: " + err.message);
 		});
-
-		console.log(st_questions);
-		console.log(st_answers);
-
-		// 2. calculate the relevance of the questions to the highlighted text
-		// Using bm25 algorithm
-		let bm25 = new BM25(st_questions);
-		let scores = bm25.get_scores(highlighted);
-		console.log(scores);
-
-		// 3. Display the top answer's content in a window
-		// Get the index of the highest score
-		let max_score = 0;
-		let max_score_index = 0;
-		for (let i = 0; i < scores.length; i++) {
-			if (scores[i] > max_score) {
-				max_score = scores[i];
-				max_score_index = i;
-			}
-		}
-
-		// Display the HTML of the highest score in a new window
-		const panel = vscode.window.createWebviewPanel(
-			'stackoverflowsearch',
-			'StackOverflow Search',
-			vscode.ViewColumn.One,
-			{}
-		);
-		panel.webview.html = st_answers[max_score_index];
 	});
 
 	context.subscriptions.push(disposable);
